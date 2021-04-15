@@ -95,11 +95,11 @@ namespace letterCompression
             string result = "";
             for (int i = 0; i < toDecomp.Length-1; i++)
             {
-                short block = (short) ((toDecomp[i] << (bitPointer+(blockSize-8))) & 0x01FF);
+                short block = (short) ((toDecomp[i] << (bitPointer+(blockSize-8))) & ((short) Math.Pow(2, blockSize)-1));
                 block |= (short)((toDecomp[i+1] & (byte)(256 - Math.Pow(2, 7-bitPointer))) >> (7-bitPointer));
                 result += block < inputAlpha.Count ? inputAlpha[block] : dataset[block - inputAlpha.Count].combo;
 
-                bitPointer++;
+                bitPointer += blockSize - 8;
                 if (bitPointer >= 8)
                 {
                     bitPointer = 0;
