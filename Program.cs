@@ -1,12 +1,8 @@
 ﻿using Newtonsoft.Json;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Text.RegularExpressions;
 
 namespace letterCompression
 {
@@ -22,7 +18,7 @@ namespace letterCompression
         public static List<char> inputAlpha = new char[] { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ' ', '.', ',', '\'','"', '!', '?'}.ToList();
 
-        public static List<Combo> dataset = JsonConvert.DeserializeObject<List<Combo>>(File.ReadAllText("dataset.json"));
+        public static List<Combo> dataset = JsonConvert.DeserializeObject<List<Combo>>(File.ReadAllText("datasets/English.json"));
 
         static void Main(string[] args)
         {
@@ -73,75 +69,44 @@ namespace letterCompression
                 c = (short)inputAlpha.FindIndex(z => z == combo1[0]);
                 if (c != -1) { compressed.Add(c); } else { throw new Exception($"Unexpected character at {i}"); }
             }
-            byte[] final = new byte[compressed.Count * blockSize]; //PLEASE FIND A BETTER WAY TO 9 BIT BLOCKS -> BYTE ARRAY 
+
+            byte[] final = new byte[(int) Math.Ceiling((double)compressed.Count * blockSize / 8)];
+            int bitPointer = 0;
+            int bytePointer = 0;
             for (int i = 0; i < compressed.Count; i++)
             {
                 short res = compressed[i];
-                string s = Convert.ToString(res, 2).PadLeft(blockSize, '0'); //PLEASE FIND A BETTER WAY TO 9 BIT BLOCKS -> BYTE ARRAY
-                for (int z = 0; z<blockSize; z++)
+                final[bytePointer] |= (byte) (res >> (blockSize-8+bitPointer));
+                bytePointer++;
+                final[bytePointer] = (byte) ((res & (short)((Math.Pow(2, bitPointer+1)-1))) << (16-blockSize-bitPointer));
+                bitPointer += blockSize - 8;
+                if (bitPointer >= 8)
                 {
-                    final[i * blockSize + z] = (byte)s[z]; //PLEASE FIND A BETTER WAY TO 9 BIT BLOCKS -> BYTE ARRAY
+                    bitPointer = 0;
+                    bytePointer++;
                 }
             }
-            BigInteger bi = BaseToBI(Encoding.UTF8.GetString(final)); //PLEASE FIND A BETTER WAY TO 9 BIT BLOCKS -> BYTE ARRAY
-            return bi.ToByteArray(); 
+            return final; 
         }
 
         public static string Decompress(byte[] toDecomp, List<Combo> dataset)
         {
-            List<short> compressed = new List<short>();
-            BigInteger bi = new BigInteger(toDecomp); //PLEASE FIND A BETTER WAY TO 9 BIT BLOCKS -> BYTE ARRAY
-            string s = getE(bi); //PLEASE FIND A BETTER WAY TO 9 BIT BLOCKS -> BYTE ARRAY
-            s = s.PadLeft(((s.Length - 1) / blockSize + 1) * blockSize, '0'); //PLEASE FIND A BETTER WAY TO 9 BIT BLOCKS -> BYTE ARRAY
-            List<short> units = new List<short>(); //PLEASE FIND A BETTER WAY TO 9 BIT BLOCKS -> BYTE ARRAY
-            for (int i = 0; i<s.Length / blockSize; i++)
-            { //PLEASE FIND A BETTER WAY TO 9 BIT BLOCKS -> BYTE ARRAY
-                string bits = s.Substring(i * blockSize, blockSize);
-                short res = (short)BaseToBI(bits);
-                units.Add(res);
-            }
+            int bitPointer = 0;
             string result = "";
-            foreach (short us in units)
+            for (int i = 0; i < toDecomp.Length-1; i++)
             {
-                result += us < inputAlpha.Count ? inputAlpha[us] : dataset[us - inputAlpha.Count].combo;
+                short block = (short) ((toDecomp[i] << (bitPointer+(blockSize-8))) & ((short) Math.Pow(2, blockSize)-1));
+                block |= (short)((toDecomp[i+1] & (byte)(256 - Math.Pow(2, 7-bitPointer))) >> (7-bitPointer));
+                result += block < inputAlpha.Count ? inputAlpha[block] : dataset[block - inputAlpha.Count].combo;
+
+                bitPointer += blockSize - 8;
+                if (bitPointer >= 8)
+                {
+                    bitPointer = 0;
+                    i++;
+                }
             }
             return result;
-        }
-
-        public static char[] binAlpha = new char[] { '0', '1' };
-
-        public static BigInteger BaseToBI(string number)
-        {
-            var CharValues = binAlpha
-           .Select((c, i) => new { Char = c, Index = i })
-           .ToDictionary(c => c.Char, c => c.Index);
-            char[] chrs = number.ToCharArray();
-            int m = chrs.Length - 1;
-            int n = binAlpha.Length, x;
-            BigInteger result = 0;
-            for (int i = 0; i < chrs.Length; i++)
-            {
-                x = CharValues[chrs[i]];
-                result += x * BigInteger.Pow(n, m--); //PLEASE FIND A BETTER WAY THAT DOESN'T INCLUDE POW(2, HUGE NUMBER)
-            }
-            return result;
-        }
-
-        public static string getE(BigInteger entry)
-        {
-            if (entry == 0)
-            {
-                return binAlpha[0].ToString();
-            }
-
-            List<char> res = new List<char>();
-            while (entry != 0)
-            {
-                res.Insert(0, binAlpha[(int)BigInteger.ModPow(entry, 1, binAlpha.Length)]);
-                entry /= binAlpha.Length;
-            }
-
-            return new string(res.ToArray());
         }
     }
 }
