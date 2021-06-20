@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -71,41 +72,34 @@ namespace letterCompression
                 if (c != -1) { compressed.Add(c); } else { throw new Exception($"Unexpected character at {i}"); }
             }
 
-            byte[] final = new byte[(int) Math.Ceiling((double)compressed.Count * blockSize / 8)];
-            int bitPointer = 0;
-            int bytePointer = 0;
+            BitArray bitArray = new BitArray(compressed.Count * blockSize);
             for (int i = 0; i < compressed.Count; i++)
             {
-                short res = compressed[i];
-                final[bytePointer] |= (byte) (res >> (blockSize-8+bitPointer));
-                bytePointer++;
-                final[bytePointer] = (byte) ((res & (short)(((1 << bitPointer+1)-1))) << (16-blockSize-bitPointer));
-                bitPointer += blockSize - 8;
-                if (bitPointer >= 8)
+                int mask = 1;
+                for (int j = 0; j < blockSize; j++)
                 {
-                    bitPointer = 0;
-                    bytePointer++;
+                    bitArray[i*blockSize + j] = Convert.ToBoolean(compressed[i] & mask);
+                    mask <<= 1;
                 }
             }
+
+            byte[] final = new byte[(int) Math.Ceiling((double)compressed.Count * blockSize / 8)];
+            bitArray.CopyTo(final, 0);
             return final; 
         }
 
         public static string Decompress(byte[] toDecomp, List<Combo> dataset)
         {
-            int bitPointer = 0;
+            BitArray bitArray = new BitArray(toDecomp);
             StringBuilder stringBuilder = new StringBuilder();
-            for (int i = 0; i < toDecomp.Length-1; i++)
+            for (int i = 0; i < bitArray.Length/blockSize; i++)
             {
-                short block = (short) ((toDecomp[i] << (bitPointer+(blockSize-8))) & ((short) Math.Pow(2, blockSize)-1));
-                block |= (short)((toDecomp[i+1] & (byte)(256 - (1 << 7-bitPointer))) >> (7-bitPointer));
-                stringBuilder.Append(block < inputAlpha.Count ? inputAlpha[block] : dataset[block - inputAlpha.Count].combo);
-
-                bitPointer += blockSize - 8;
-                if (bitPointer >= 8)
+                int block = 0;
+                for (int j = 0; j < blockSize; j++)
                 {
-                    bitPointer = 0;
-                    i++;
+                    block |= Convert.ToInt32(bitArray[i*blockSize + j]) << j;
                 }
+                stringBuilder.Append(block < inputAlpha.Count ? inputAlpha[block] : dataset[block - inputAlpha.Count].combo);
             }
             return stringBuilder.ToString();
         }
