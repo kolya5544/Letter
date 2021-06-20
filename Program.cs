@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace letterCompression
 {
@@ -16,7 +17,7 @@ namespace letterCompression
         public static int blockSize = 9; //9 bits. Don't change - might break (never tested)
 
         public static List<char> inputAlpha = new char[] { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ' ', '.', ',', '\'','"', '!', '?'}.ToList();
+    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ' ', '.', ',', '\'','"', '!', '?', '\n'}.ToList();
 
         public static List<Combo> dataset = JsonConvert.DeserializeObject<List<Combo>>(File.ReadAllText("datasets/English.json"));
 
@@ -78,7 +79,7 @@ namespace letterCompression
                 short res = compressed[i];
                 final[bytePointer] |= (byte) (res >> (blockSize-8+bitPointer));
                 bytePointer++;
-                final[bytePointer] = (byte) ((res & (short)((Math.Pow(2, bitPointer+1)-1))) << (16-blockSize-bitPointer));
+                final[bytePointer] = (byte) ((res & (short)(((1 << bitPointer+1)-1))) << (16-blockSize-bitPointer));
                 bitPointer += blockSize - 8;
                 if (bitPointer >= 8)
                 {
@@ -92,12 +93,12 @@ namespace letterCompression
         public static string Decompress(byte[] toDecomp, List<Combo> dataset)
         {
             int bitPointer = 0;
-            string result = "";
+            StringBuilder stringBuilder = new StringBuilder();
             for (int i = 0; i < toDecomp.Length-1; i++)
             {
                 short block = (short) ((toDecomp[i] << (bitPointer+(blockSize-8))) & ((short) Math.Pow(2, blockSize)-1));
-                block |= (short)((toDecomp[i+1] & (byte)(256 - Math.Pow(2, 7-bitPointer))) >> (7-bitPointer));
-                result += block < inputAlpha.Count ? inputAlpha[block] : dataset[block - inputAlpha.Count].combo;
+                block |= (short)((toDecomp[i+1] & (byte)(256 - (1 << 7-bitPointer))) >> (7-bitPointer));
+                stringBuilder.Append(block < inputAlpha.Count ? inputAlpha[block] : dataset[block - inputAlpha.Count].combo);
 
                 bitPointer += blockSize - 8;
                 if (bitPointer >= 8)
@@ -106,7 +107,7 @@ namespace letterCompression
                     i++;
                 }
             }
-            return result;
+            return stringBuilder.ToString();
         }
     }
 }
