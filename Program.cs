@@ -34,7 +34,7 @@ namespace letterCompression
             if (z.Key == ConsoleKey.D1)
             {
                 Console.Write("[Text to compress (a-Z 0-9 .,'\"!?)]=");
-                string text = Console.ReadLine().Replace("\r", "").Replace("\n", " ");
+                string text = Console.ReadLine().Replace("\r", "");
                 byte[] compressed = Compress(text, dataset);
                 Console.WriteLine($"[Result (in base64)]={Convert.ToBase64String(compressed)}");
             } else
